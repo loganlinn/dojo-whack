@@ -1,10 +1,14 @@
 # dojo-whack
 
-A Clojure library designed to ... well, that part is up to you.
+Whack-a-Mole! in Clojure for the March 2013 San Francisco Clojure Dojo.
 
 ## Usage
 
-FIXME
+```
+git clone git@github.com:loganlinn/dojo-whack.git
+cd dojo-whack
+lein run
+```
 
 ## License
 
