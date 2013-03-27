@@ -132,13 +132,21 @@
   [(+ (* y 3) 2 x) (* x 2)])
 
 ;; TODO draw-moles clear-moles
-(defn draw-game
-  [game screen]
+(defn clear-moles
+  [screen]
   (doseq [[x y] (map draw-coord board-coords)]
-    (s/put-string screen x y " "))
+    (s/put-string screen x y " ")))
+
+(defn draw-moles
+  [game screen]
   (doseq [mole (vals (:board game))]
     (let [[x y] (draw-coord (mole-coord mole))]
-     (s/put-string screen x y (str (mole-char mole)))))
+      (s/put-string screen x y (str (mole-char mole))))))
+
+(defn draw-game
+  [game screen]
+  (clear-moles screen)
+  (draw-moles game screen)
   (s/put-string screen 0 11 (str "Score: " (:score game)))
   (s/redraw screen)
   (update-in game [:board] remove-expired-moles screen))
