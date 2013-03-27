@@ -12,6 +12,6 @@ lein run
 
 ## License
 
-Copyright © 2013 FIXME
+Copyright © 2013 Logan Linn
 
 Distributed under the Eclipse Public License, the same as Clojure.
