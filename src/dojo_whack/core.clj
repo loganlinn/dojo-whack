@@ -100,10 +100,7 @@
 
 (defn expired-mole-keys
   [board t]
-  (keep
-    (fn [[k mole]]
-      (when (mole-expired? mole t) k))
-    board))
+  (keep #(when (mole-expired? (val %) t) (key %)) board))
 
 (defn remove-expired-moles
   [{:keys [board t] :as game} screen]
