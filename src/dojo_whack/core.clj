@@ -133,12 +133,6 @@
   [[x y]]
   [(+ (* y 3) 2 x) (* x 2)])
 
-;; TODO draw-moles clear-moles
-(defn clear-moles
-  [screen]
-  (doseq [[x y] (map draw-coord board-coords)]
-    (s/put-string screen x y " ")))
-
 (defn draw-moles
   [game screen]
   (doseq [mole (vals (:board game))]
@@ -147,7 +141,7 @@
 
 (defn draw-game
   [{:keys [score] :as game} screen]
-  (clear-moles screen)
+  (s/clear screen)
   (draw-moles game screen)
   (s/put-string screen 0 11 (str "Score: " score))
   (s/redraw screen)
