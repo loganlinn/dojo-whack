@@ -4,14 +4,10 @@
 
 (defn t [] (System/currentTimeMillis))
 
-(defn spy
-  [x label]
-  (do
-    (println (format "%s@%d: %s" label (t) (prn-str x)))
-    x))
-
-(def board-map [[\1 \2 \3]
-                [\q \w \e]])
+(def board-map [[\1 \2 \3 \4 \5 \6 \7 \8 \9 \0]
+                [\q \w \e \r \t \y \u \i \o \p]
+                [\a \s \d \f \g \h \j \k \l]
+                [\z \x \c \v \b \n \m]])
 
 (def board-coords
   (set
