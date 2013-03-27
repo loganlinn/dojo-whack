@@ -36,6 +36,14 @@
 (defn mole-coord [mole] (:coord mole))
 (defn mole-char [mole] (get-in board-map (mole-coord mole)))
 (defn mole-key [mole] (mole-char mole))
+(defn mole-duration [{:keys [enter exit]}] (- exit enter))
+(defn mole-reward
+  [{:keys [enter] :as mole}]
+  (let [full-value 100
+        age (- (t) enter)
+        dur (mole-duration mole)
+        p (max 0.0 (double (- 1 (/ age dur))))]
+    (int (* full-value p))))
 
 (defrecord Game [board next-mole score input messages])
 
@@ -64,10 +72,13 @@
 
 (defn whack
   [game mole-key]
-  (println "WHACKED " mole-key)
-  (-> game
-    (update-in [:board] remove-mole mole-key)
-    (update-in [:score] + 100)))
+  (if-let [mole (get-in game [:board mole-key])]
+    (let [reward (mole-reward mole)]
+      (println "WHACKED" mole-key "for" reward "points!")
+      (-> game
+        (update-in [:score] + (mole-reward mole))
+        (update-in [:board] remove-mole mole-key)))
+    game))
 
 (defn whacked?
   [board k]
@@ -118,11 +129,6 @@
       new-next-mole)
     game))
 
-(defn tick
-  [game]
-  (-> game
-    (show-next-mole)))
-
 (defn draw-coord
   [[x y]]
   [(+ (* y 3) 2 x) (* x 2)])
@@ -140,10 +146,10 @@
       (s/put-string screen x y (str (mole-char mole))))))
 
 (defn draw-game
-  [game screen]
+  [{:keys [score] :as game} screen]
   (clear-moles screen)
   (draw-moles game screen)
-  (s/put-string screen 0 11 (str "Score: " (:score game)))
+  (s/put-string screen 0 11 (str "Score: " score))
   (s/redraw screen)
   (update-in game [:board] remove-expired-moles screen))
 
@@ -168,7 +174,7 @@
                     (assoc :input [])
                     (process-input input))
                  #(-> %
-                    (tick)
+                    (show-next-mole)
                     (draw-game screen))))
         (Thread/sleep 50)))))
 
