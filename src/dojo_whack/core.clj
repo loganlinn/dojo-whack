@@ -24,34 +24,34 @@
     (when coords-left (rand-nth coords-left))))
 
 (defn new-mole
-  ([taken-coords]
-   (let [enter (+ (t) (rand-int 500) 250)
+  ([t taken-coords]
+   (let [enter (+ t (rand-int 500) 250)
          exit (+ enter 2000)]
      {:coord (new-coord taken-coords)
       :enter enter
       :exit exit}))
-  ([]
-   (new-mole [])))
+  ([t]
+   (new-mole t [])))
 
 (defn mole-coord [mole] (:coord mole))
 (defn mole-char [mole] (get-in board-map (mole-coord mole)))
 (defn mole-key [mole] (mole-char mole))
 (defn mole-duration [{:keys [enter exit]}] (- exit enter))
 (defn mole-reward
-  [{:keys [enter] :as mole}]
+  [{:keys [enter] :as mole} t]
   (let [full-value 100
-        age (- (t) enter)
+        age (- t enter)
         dur (mole-duration mole)
         p (max 0.0 (double (- 1 (/ age dur))))]
     (int (* full-value p))))
 
-(defrecord Game [board next-mole score input messages])
+(defrecord Game [board next-mole score t input messages])
 
 (defn new-game
   []
   (map->Game {:board {}
-              :next-mole (new-mole)
               :score 0
+              :t (t)
               :input []
               :messages []}))
 
@@ -71,12 +71,12 @@
   (dissoc board mole-key))
 
 (defn whack
-  [game mole-key]
+  [{:keys [t] :as game} mole-key]
   (if-let [mole (get-in game [:board mole-key])]
-    (let [reward (mole-reward mole)]
+    (let [reward (mole-reward mole t)]
       (println "WHACKED" mole-key "for" reward "points!")
       (-> game
-        (update-in [:score] + (mole-reward mole))
+        (update-in [:score] + reward)
         (update-in [:board] remove-mole mole-key)))
     game))
 
@@ -95,18 +95,21 @@
     game))
 
 (defn mole-expired?
-  [mole]
-  (> (t) (:exit mole)))
+  [mole t]
+  (> t (:exit mole)))
+
+(defn expired-mole-keys
+  [board t]
+  (keep
+    (fn [[k mole]]
+      (when (mole-expired? mole t) k))
+    board))
 
 (defn remove-expired-moles
-  [board screen]
-  (reduce
-    (fn [board mole]
-      (if (mole-expired? mole)
-        (remove-mole board (mole-key mole))
-        board))
-    board
-    (vals board)))
+  [{:keys [board t] :as game} screen]
+  (update-in game [:board]
+             #(apply dissoc %
+                     (expired-mole-keys % t))))
 
 (defn activate-next-mole
   [{:keys [next-mole] :as game}]
@@ -117,17 +120,17 @@
     game))
 
 (defn new-next-mole
-  [{:keys [board] :as game}]
-  (assoc game :next-mole (new-mole (keys board))))
+  [{:keys [board t] :as game}]
+  (assoc game :next-mole (new-mole t (keys board))))
 
-(defn show-next-mole
-  [{:keys [next-mole] :as game}]
-  (if (and next-mole
-           (>= (t) (:enter next-mole)))
-    (-> game
-      activate-next-mole
-      new-next-mole)
-    game))
+(defn tick-moles
+  [{:keys [next-mole t] :as game}]
+  (cond
+    (nil? next-mole) (new-next-mole game)
+    (>= t (:enter next-mole)) (-> game
+                                activate-next-mole
+                                new-next-mole)
+    :else game))
 
 (defn draw-coord
   [[x y]]
@@ -140,12 +143,12 @@
       (s/put-string screen x y (str (mole-char mole))))))
 
 (defn draw-game
-  [{:keys [score] :as game} screen]
+  [{:keys [score t] :as game} screen]
   (s/clear screen)
   (draw-moles game screen)
   (s/put-string screen 0 11 (str "Score: " score))
   (s/redraw screen)
-  (update-in game [:board] remove-expired-moles screen))
+  (remove-expired-moles game screen))
 
 (defn game-over?
   [game]
@@ -156,33 +159,38 @@
   (while (not (game-over? game))
     (get-input game screen)))
 
+(defn tick-time
+  [game]
+  (assoc game :t (t)))
+
 (defn run-game
   [game screen]
-  (let [input-thread (Thread. #(run-input game screen))]
-    (.start input-thread)
-    (while (not (game-over? game))
-      (let [{:keys [input]} @game]
-        (swap! game
-               (if (seq input)
-                 #(-> %
-                    (assoc :input [])
-                    (process-input input))
-                 #(-> %
-                    (show-next-mole)
-                    (draw-game screen))))
-        (Thread/sleep 50)))))
+  (while (not (game-over? game))
+    (let [{:keys [input]} @game]
+      (swap! game
+             (if (seq input)
+               #(-> %
+                  (assoc :input [])
+                  (process-input input))
+               #(-> %
+                  (tick-time)
+                  (tick-moles)
+                  (draw-game screen))))
+      (Thread/sleep 50))))
 
 (defn main
   [screen-type]
-  (let [screen (s/get-screen screen-type)]
+  (let [screen (s/get-screen screen-type)
+        game (atom (new-game))
+        input-thread (Thread. #(run-input game screen))]
     (s/in-screen screen
                  (s/put-string screen 0 0 "Welcome to Dojo Whack-a-Mole!")
                  (s/put-string screen 0 1 "Press any key to start...")
                  (s/redraw screen)
+                 (s/clear screen)
                  (s/get-key-blocking screen)
-                 (s/put-string screen 0 0 "                              ")
-                 (s/put-string screen 0 1 "                              ")
-                 (run-game (atom (new-game)) screen))))
+                 (.start input-thread)
+                 (run-game game screen))))
 
 (defn -main [& args]
   (let [args (set args)
